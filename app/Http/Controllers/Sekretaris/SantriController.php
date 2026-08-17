@@ -20,6 +20,16 @@ class SantriController extends Controller
             ->orderBy('nama_lengkap')
             ->paginate(25);
 
+        // Defense-in-depth: field sensitif (NIK, riwayat kesehatan, alergi, gol. darah)
+        // disembunyikan dari serialisasi kalau user yang login bukan Sekretaris.
+        // Saat ini route ini sudah di-guard middleware('role:sekretaris') sehingga
+        // secara praktis selalu Sekretaris, TAPI kalau nanti Ketua Umum diberi akses
+        // baca ke modul Santri, filter ini mencegah data sensitif ikut bocor tanpa
+        // perlu mengubah controller lagi.
+        if (! $request->user()->canViewDataSensitifSantri()) {
+            $santris->getCollection()->each->makeHidden(Santri::FIELD_SENSITIF);
+        }
+
         return view('sekretaris.santri.index', [
             'santris' => $santris,
             'kelasList' => Kelas::orderBy('nama')->get(),
@@ -49,9 +59,13 @@ class SantriController extends Controller
         return redirect()->route('sekretaris.santri.index')->with('success', 'Data santri berhasil ditambahkan.');
     }
 
-    public function show(Santri $santri)
+    public function show(Request $request, Santri $santri)
     {
         $santri->load(['kelas.tingkat', 'riwayatAsrama.asrama', 'prestasis', 'izins', 'pelanggarans']);
+
+        if (! $request->user()->canViewDataSensitifSantri()) {
+            $santri->makeHidden(Santri::FIELD_SENSITIF);
+        }
 
         return view('sekretaris.santri.show', compact('santri'));
     }

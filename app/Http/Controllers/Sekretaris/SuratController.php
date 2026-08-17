@@ -8,6 +8,7 @@ use App\Models\JenisSurat;
 use App\Models\Santri;
 use App\Models\Surat;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SuratController extends Controller
 {
@@ -103,5 +104,23 @@ class SuratController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sekretaris.surat.pdf', compact('surat'));
 
         return $pdf->stream("{$surat->nomor_surat}.pdf");
+    }
+
+    /**
+     * Stream lampiran surat dari disk privat.
+     * Route ini didaftarkan di dua tempat (Sekretaris & Ketua Umum) karena
+     * kedua role tersebut sama-sama perlu membuka lampiran — Sekretaris saat
+     * mengelola arsip, Ketua Umum saat meninjau surat yang menunggu approval.
+     * File TIDAK boleh di-symlink ke public/storage (lihat config/filesystems.php).
+     */
+    public function lampiran(Surat $surat)
+    {
+        abort_if(empty($surat->lampiran_path), 404, 'Surat ini tidak memiliki lampiran.');
+        abort_unless(Storage::disk('private')->exists($surat->lampiran_path), 404, 'File lampiran tidak ditemukan.');
+
+        return Storage::disk('private')->response(
+            $surat->lampiran_path,
+            "lampiran-{$surat->nomor_surat}.".pathinfo($surat->lampiran_path, PATHINFO_EXTENSION)
+        );
     }
 }

@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\ItemRincian;
 use App\Models\Realisasi;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class RealisasiController extends Controller
 {
@@ -49,5 +50,22 @@ class RealisasiController extends Controller
         ActivityLog::catat('delete', $realisasi, "Menghapus realisasi pada item {$itemNama}", $dataSebelum);
 
         return back()->with('success', 'Realisasi dihapus.');
+    }
+
+    /**
+     * Stream bukti realisasi dari disk privat.
+     * Route didaftarkan untuk Bendahara (yang menginput) dan Ketua Umum
+     * (yang meninjau RAPB lewat RapbApprovalController) — keduanya perlu
+     * membuka bukti tanpa file tersebut pernah ter-expose lewat URL publik.
+     */
+    public function bukti(Realisasi $realisasi)
+    {
+        abort_if(empty($realisasi->bukti_path), 404, 'Realisasi ini tidak memiliki bukti.');
+        abort_unless(Storage::disk('private')->exists($realisasi->bukti_path), 404, 'File bukti tidak ditemukan.');
+
+        return Storage::disk('private')->response(
+            $realisasi->bukti_path,
+            "bukti-realisasi-{$realisasi->id}.".pathinfo($realisasi->bukti_path, PATHINFO_EXTENSION)
+        );
     }
 }
