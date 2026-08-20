@@ -25,25 +25,6 @@ use App\Http\Controllers\Sekretaris\SuratController;
 use App\Http\Controllers\Sekretaris\TingkatController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes — SIAP AFP
-|--------------------------------------------------------------------------
-| Semua route ada dalam satu file ini, dikelompokkan per role dengan
-| middleware('role:...') + prefix + name, supaya tetap jelas siapa boleh
-| akses apa tanpa perlu memecah ke banyak file.
-|
-| CATATAN PERBAIKAN (lihat juga PRD): sebelumnya beberapa controller sudah
-| dibuat tapi belum pernah didaftarkan di sini — JenisSuratController,
-| TingkatController, KetuaUmum\UserController, SubKategoriRapbController,
-| IzinController::tandaiKembali()/generateSurat(), dan ActivityLogController
-| — semua sudah ditambahkan di bawah. Route resource('item-rincian', ...)
-| juga di-exclude dari 'index' karena controller-nya memang tidak punya
-| method index() (item selalu diakses lewat halaman detail kategori).
-| Route baru untuk streaming file privat (lampiran surat & bukti realisasi)
-| juga ditambahkan supaya file yang sudah tersimpan di disk 'private' bisa
-| benar-benar dibuka lewat browser oleh role yang berwenang.
-*/
 
 Route::get('/', fn () => redirect()->route('login'));
 
@@ -118,8 +99,7 @@ Route::middleware(['auth', 'role:sekretaris'])
         // Jenis Surat — master data untuk Generator Surat, controller sudah ada, route belum pernah ada
         Route::resource('jenis-surat', JenisSuratController::class)->except(['show']);
 
-        // Arsip Surat + Generator Surat
-        Route::resource('surat', SuratController::class);
+        Route::resource('surat', SuratController::class)->except(['edit', 'update', 'destroy']);
         Route::get('/surat/{surat}/cetak', [SuratController::class, 'cetakPdf'])->name('surat.cetak');
         Route::get('/surat/{surat}/lampiran', [SuratController::class, 'lampiran'])->name('surat.lampiran');
 
