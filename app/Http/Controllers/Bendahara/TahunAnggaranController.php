@@ -55,6 +55,15 @@ class TahunAnggaranController extends Controller
 
     public function update(Request $request, TahunAnggaran $tahunAnggaran)
     {
+        // FIX: kunci perubahan setelah disetujui Ketua Umum — cegah approval jadi tidak
+        // bermakna karena data berubah diam-diam. Bendahara harus memakai alur
+        // "ajukan ulang" (lihat ajukanApproval()) sebelum bisa mengedit lagi.
+        abort_if(
+            $tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         $validated = $this->validated($request);
         $dataSebelum = $tahunAnggaran->only(array_keys($validated));
 
@@ -84,7 +93,8 @@ class TahunAnggaranController extends Controller
 
     /**
      * Bendahara mengajukan RAPB untuk disetujui Ketua Umum (status Pending sudah default sejak dibuat,
-     * route ini dipakai jika sebelumnya sempat direset/ditolak dan Bendahara ingin mengajukan ulang).
+     * route ini dipakai jika sebelumnya sempat direset/ditolak/dikunci dan Bendahara ingin mengajukan ulang
+     * — termasuk setelah revisi pada RAPB yang tadinya sudah Approved).
      */
     public function ajukanApproval(TahunAnggaran $tahunAnggaran)
     {

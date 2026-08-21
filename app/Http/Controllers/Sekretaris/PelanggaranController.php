@@ -19,8 +19,10 @@ class PelanggaranController extends Controller
             ->latest('tanggal')
             ->paginate(25);
 
-        // Laporan santri dengan poin tertinggi — dihitung di memori karena total_poin adalah accessor (mempertimbangkan reset)
-        $santriPoinTertinggi = Santri::aktif()->get()
+        // Laporan santri dengan poin tertinggi — dihitung di memori karena total_poin adalah accessor
+        // (mempertimbangkan reset). FIX: eager-load 'pelanggarans' & 'resetPoinHistory' supaya
+        // accessor total_poin tidak N+1 query per santri saat di-sort.
+        $santriPoinTertinggi = Santri::aktif()->with(['pelanggarans', 'resetPoinHistory'])->get()
             ->sortByDesc(fn (Santri $s) => $s->total_poin)
             ->take(10)
             ->values();

@@ -34,6 +34,19 @@ class TahunAnggaran extends Model
         return $this->belongsTo(User::class, 'disetujui_oleh');
     }
 
+    /**
+     * Setelah RAPB disetujui Ketua Umum, struktur anggaran (tahun anggaran itu sendiri,
+     * kategori, sub-kategori, item rincian & rencana bulanan) TIDAK boleh diubah lagi
+     * tanpa melalui pengajuan ulang — supaya persetujuan tidak jadi tidak bermakna
+     * karena angka berubah diam-diam setelah disetujui. Realisasi (pencatatan
+     * pengeluaran aktual) SENGAJA tidak dikunci oleh ini, karena realisasi memang
+     * harus terus bisa dicatat sepanjang tahun anggaran berjalan.
+     */
+    public function isApprovalLocked(): bool
+    {
+        return $this->status_approval === 'Approved';
+    }
+
     // Total rencana & realisasi lintas kategori — dipakai di Dashboard & LPJ
     public function totalRencana(): float
     {

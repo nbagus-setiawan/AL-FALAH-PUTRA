@@ -33,8 +33,19 @@ class ItemRincian extends Model
         return $this->hasMany(Realisasi::class);
     }
 
+    /**
+     * PERFORMA: pakai koleksi 'realisasis' yang sudah di-eager-load (properti, bukan
+     * method) bila tersedia, supaya tidak fire query baru per item saat dipanggil
+     * dalam loop (mis. daftar item di halaman detail kategori/tahun anggaran yang
+     * sudah ->with('...itemRincians.realisasis')). Fallback ke query langsung kalau
+     * relasi belum dimuat (mis. akses satu ItemRincian saja).
+     */
     public function getTotalRealisasiAttribute(): float
     {
+        if ($this->relationLoaded('realisasis')) {
+            return (float) $this->realisasis->sum('jumlah');
+        }
+
         return (float) $this->realisasis()->sum('jumlah');
     }
 

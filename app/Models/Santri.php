@@ -36,6 +36,10 @@ class Santri extends Model
     // Dipakai di Controller/Resource, BUKAN otomatis di $hidden, karena kebutuhan akses berbeda per konteks.
     public const FIELD_SENSITIF = ['nik', 'riwayat_kesehatan', 'alergi', 'golongan_darah'];
 
+    // Cache in-memory untuk accessor total_poin, supaya getWarnaPoinAttribute()
+    // (yang memanggil total_poin lagi) tidak query ulang ke DB.
+    protected ?int $totalPoinCache = null;
+
     public function kelas()
     {
         return $this->belongsTo(Kelas::class);
@@ -83,9 +87,31 @@ class Santri extends Model
 
     /**
      * Total poin kedisiplinan akumulatif, dihitung dari titik reset terakhir (jika ada).
+     *
+     * PERFORMA: jika relasi 'pelanggarans' & 'resetPoinHistory' sudah di-eager-load
+     * (mis. Santri::with(['pelanggarans', 'resetPoinHistory'])->get()), accessor ini
+     * memakai koleksi yang sudah dimuat tanpa query tambahan — mencegah N+1 saat
+     * dipanggil dalam loop atas banyak santri. Jika belum di-eager-load (mis. akses
+     * satu model saja), tetap fallback ke query langsung. Hasil di-cache per instance
+     * agar getWarnaPoinAttribute() (yang memanggil accessor ini lagi) tidak query ulang.
      */
     public function getTotalPoinAttribute(): int
     {
+        if ($this->totalPoinCache !== null) {
+            return $this->totalPoinCache;
+        }
+
+        if ($this->relationLoaded('pelanggarans') && $this->relationLoaded('resetPoinHistory')) {
+            $resetTerakhir = $this->resetPoinHistory->sortByDesc('direset_pada')->first();
+
+            $pelanggarans = $this->pelanggarans;
+            if ($resetTerakhir) {
+                $pelanggarans = $pelanggarans->where('tanggal', '>=', $resetTerakhir->direset_pada);
+            }
+
+            return $this->totalPoinCache = (int) $pelanggarans->sum('poin');
+        }
+
         $query = $this->pelanggarans();
 
         $resetTerakhir = $this->resetPoinHistory()->orderByDesc('direset_pada')->first();
@@ -93,7 +119,7 @@ class Santri extends Model
             $query->where('tanggal', '>=', $resetTerakhir->direset_pada);
         }
 
-        return (int) $query->sum('poin');
+        return $this->totalPoinCache = (int) $query->sum('poin');
     }
 
     /**

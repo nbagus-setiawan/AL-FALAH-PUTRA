@@ -12,6 +12,13 @@ class SubKategoriRapbController extends Controller
 {
     public function store(Request $request, KategoriRapb $kategori)
     {
+        // FIX: cegah penambahan sub-kategori pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
         ]);
@@ -25,6 +32,13 @@ class SubKategoriRapbController extends Controller
 
     public function update(Request $request, SubKategoriRapb $subKategori)
     {
+        // FIX: cegah edit sub-kategori pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $subKategori->kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
         ]);
@@ -39,6 +53,13 @@ class SubKategoriRapbController extends Controller
 
     public function destroy(SubKategoriRapb $subKategori)
     {
+        // FIX: cegah hapus sub-kategori pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $subKategori->kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         abort_if($subKategori->itemRincians()->exists(), 422, 'Sub-kategori ini masih memiliki item rincian.');
 
         $dataSebelum = $subKategori->toArray();

@@ -36,7 +36,9 @@ class DashboardController extends Controller
             'rapb_rencana' => $tahunAktif?->totalRencana() ?? 0,
             'rapb_realisasi' => $tahunAktif?->totalRealisasi() ?? 0,
 
-            'santri_poin_tertinggi' => Santri::aktif()->get()
+            // FIX: eager-load 'pelanggarans' & 'resetPoinHistory' supaya accessor
+            // total_poin (dipakai untuk sort) tidak N+1 query per santri.
+            'santri_poin_tertinggi' => Santri::aktif()->with(['pelanggarans', 'resetPoinHistory'])->get()
                 ->sortByDesc(fn (Santri $s) => $s->total_poin)
                 ->take(5)
                 ->values(),

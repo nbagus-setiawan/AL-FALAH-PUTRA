@@ -29,6 +29,15 @@ class ItemRincianController extends Controller
             'rencana_bulanan.*' => 'nullable|numeric|min:0',
         ]);
 
+        $subKategori = SubKategoriRapb::with('kategori.tahunAnggaran')->findOrFail($validated['sub_kategori_rapb_id']);
+
+        // FIX: cegah penambahan item rincian pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $subKategori->kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         $rencanaBulanan = $validated['rencana_bulanan'] ?? null;
         unset($validated['rencana_bulanan']);
 
@@ -48,6 +57,8 @@ class ItemRincianController extends Controller
 
         ActivityLog::catat('create', $item, "Menambahkan item rincian {$item->nama} (Rp ".number_format($item->jumlah_rencana, 0, ',', '.').')');
 
+        // Catatan: untuk action show/edit/update/destroy pada shallow resource,
+        // nama route JUSTRU dipendekkan (bukan "tahun-anggaran.kategori.show").
         return redirect()
             ->route('bendahara.kategori.show', $item->subKategori->kategori_rapb_id)
             ->with('success', 'Item rincian berhasil ditambahkan.');
@@ -69,6 +80,13 @@ class ItemRincianController extends Controller
 
     public function update(Request $request, ItemRincian $itemRincian)
     {
+        // FIX: cegah edit item rincian pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $itemRincian->subKategori->kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'jumlah_rencana' => 'required|numeric|min:0',
@@ -103,10 +121,16 @@ class ItemRincianController extends Controller
 
     public function destroy(ItemRincian $itemRincian)
     {
+        // FIX: cegah hapus item rincian pada RAPB yang sudah disetujui Ketua Umum
+        abort_if(
+            $itemRincian->subKategori->kategori->tahunAnggaran->isApprovalLocked(),
+            422,
+            'RAPB ini sudah disetujui Ketua Umum dan terkunci dari perubahan. Ajukan ulang terlebih dahulu jika ingin merevisi.'
+        );
+
         abort_if($itemRincian->realisasis()->exists(), 422, 'Item ini sudah memiliki realisasi, tidak bisa dihapus.');
 
         $dataSebelum = $itemRincian->toArray();
-        $subKategoriId = $itemRincian->sub_kategori_rapb_id;
         $nama = $itemRincian->nama;
         $itemRincian->delete();
 

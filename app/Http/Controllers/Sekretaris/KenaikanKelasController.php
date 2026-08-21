@@ -69,21 +69,35 @@ class KenaikanKelasController extends Controller
             'lulus.*' => 'exists:santris,id',
         ]);
 
+        // FIX: validasi 'promosi.*' di atas hanya mengecek VALUE (kelas_tujuan_id).
+        // Key array (santri_id) tidak tervalidasi otomatis oleh Laravel, jadi divalidasi manual di sini
+        // supaya tidak ada santri_id "siluman" yang lolos ke proses update.
+        if (! empty($validated['promosi'])) {
+            $santriIdsValid = Santri::whereIn('id', array_keys($validated['promosi']))->pluck('id')->all();
+            $santriIdsTidakValid = array_diff(array_keys($validated['promosi']), $santriIdsValid);
+
+            abort_if(
+                ! empty($santriIdsTidakValid),
+                422,
+                'Terdapat data santri yang tidak valid pada daftar promosi.'
+            );
+        }
+
         $jumlahDiproses = DB::transaction(function () use ($validated) {
             $count = 0;
 
             foreach ($validated['promosi'] ?? [] as $santriId => $kelasTujuanId) {
-                Santri::where('id', $santriId)->update(['kelas_id' => $kelasTujuanId]);
-                $count++;
+                // FIX: hanya hitung santri yang baris-nya benar-benar ter-update
+                // (update() mengembalikan jumlah baris terdampak), bukan diinkrement tanpa syarat.
+                $count += Santri::where('id', $santriId)->update(['kelas_id' => $kelasTujuanId]);
             }
 
             foreach ($validated['lulus'] ?? [] as $santriId) {
-                Santri::where('id', $santriId)->update([
+                $count += Santri::where('id', $santriId)->update([
                     'status' => Santri::STATUS_LULUS,
                     'tanggal_keluar' => now()->toDateString(),
                     'keterangan_keluar' => 'Lulus — tamat seluruh jenjang pendidikan',
                 ]);
-                $count++;
             }
 
             // tinggal_kelas: tidak ada perubahan data, hanya dikecualikan dari update kelas_id
