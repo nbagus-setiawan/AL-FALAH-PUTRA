@@ -9,6 +9,7 @@ use App\Models\AsramaPenghuni;
 use App\Models\Pengurus;
 use App\Models\Santri;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AsramaController extends Controller
 {
@@ -79,6 +80,15 @@ class AsramaController extends Controller
     /**
      * Pindahkan santri ke asrama lain. Riwayat penghuni lama TIDAK ditimpa
      * — ditutup dengan tanggal_keluar, lalu baris baru dibuat (lihat AsramaPenghuni::pindahkan()).
+     *
+     * FIX: pengecekan kapasitas + pemindahan sekarang dibungkus DB::transaction() dengan
+     * lockForUpdate() pada baris asrama tujuan. Sebelumnya, cek kapasitas ("apakah
+     * asrama sudah penuh?") dan proses insert dilakukan sebagai 2 langkah terpisah
+     * tanpa lock — kalau dua request pindah-asrama ke asrama yang sama terjadi hampir
+     * bersamaan, keduanya bisa lolos cek kapasitas yang sama lalu sama-sama insert,
+     * sehingga kapasitas asrama bisa terlampaui (race condition / TOCTOU). Dengan
+     * lockForUpdate(), request kedua akan menunggu request pertama selesai, lalu
+     * membaca jumlah penghuni yang sudah ter-update sebelum ikut mengecek kapasitas.
      */
     public function pindahkanSantri(Request $request, Santri $santri)
     {
@@ -88,15 +98,19 @@ class AsramaController extends Controller
             'keterangan' => 'nullable|string|max:255',
         ]);
 
-        $asramaBaru = Asrama::findOrFail($validated['asrama_id']);
+        $asramaBaru = DB::transaction(function () use ($validated, $santri) {
+            $asramaBaru = Asrama::lockForUpdate()->findOrFail($validated['asrama_id']);
 
-        abort_if(
-            $asramaBaru->jumlahPenghuniAktif() >= $asramaBaru->kapasitas,
-            422,
-            'Asrama tujuan sudah mencapai kapasitas maksimum.'
-        );
+            abort_if(
+                $asramaBaru->jumlahPenghuniAktif() >= $asramaBaru->kapasitas,
+                422,
+                'Asrama tujuan sudah mencapai kapasitas maksimum.'
+            );
 
-        $penghuniBaru = AsramaPenghuni::pindahkan($santri, $asramaBaru, $validated['tanggal'] ?? null, $validated['keterangan'] ?? null);
+            AsramaPenghuni::pindahkan($santri, $asramaBaru, $validated['tanggal'] ?? null, $validated['keterangan'] ?? null);
+
+            return $asramaBaru;
+        });
 
         ActivityLog::catat(
             'pindah_asrama',

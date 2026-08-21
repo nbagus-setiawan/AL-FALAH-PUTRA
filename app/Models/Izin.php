@@ -54,10 +54,24 @@ class Izin extends Model
         return $this->belongsTo(User::class, 'diajukan_oleh');
     }
 
-    // Izin yang sudah lewat rencana_kembali tapi belum kembali -> kandidat notifikasi telat
+    /**
+     * Izin yang sudah lewat rencana_kembali tapi belum kembali DAN belum berhasil
+     * dinotifikasi -> kandidat notifikasi telat.
+     *
+     * FIX: sebelumnya scope ini hanya menyaring status == 'Sedang Izin'. Masalahnya,
+     * UpdateStatusIzinTerlambat command langsung mengubah status menjadi 'Terlambat'
+     * SEBELUM mengirim email; kalau pengiriman email gagal (SMTP down, dsb),
+     * notifikasi_telat_terkirim tetap false tapi status sudah bukan 'Sedang Izin' lagi,
+     * sehingga izin tsb tidak akan pernah terjaring ulang oleh scope ini pada jadwal
+     * berikutnya -> notifikasi hilang permanen tanpa mekanisme retry.
+     *
+     * Sekarang scope ini juga menyertakan status 'Terlambat' yang notifikasinya belum
+     * terkirim, supaya command yang berjalan di jadwal berikutnya otomatis mencoba
+     * mengirim ulang sampai berhasil (self-healing retry), bukan diam-diam hilang.
+     */
     public function scopeTerlambatBelumNotif($query)
     {
-        return $query->where('status', self::STATUS_SEDANG_IZIN)
+        return $query->whereIn('status', [self::STATUS_SEDANG_IZIN, self::STATUS_TERLAMBAT])
             ->whereDate('rencana_kembali', '<', now()->toDateString())
             ->where('notifikasi_telat_terkirim', false);
     }

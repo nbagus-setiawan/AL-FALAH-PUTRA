@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class AsramaPenghuni extends Model
 {
@@ -35,20 +36,29 @@ class AsramaPenghuni extends Model
      * Pindahkan santri ke asrama baru.
      * Riwayat lama TIDAK dihapus/ditimpa — hanya diberi tanggal_keluar,
      * lalu baris baru dibuat untuk asrama tujuan.
+     *
+     * FIX: dibungkus DB::transaction(). Sebelumnya "tutup baris lama" dan "buat baris
+     * baru" adalah 2 query terpisah tanpa transaction — kalau proses terputus di
+     * antara keduanya (error, request timeout, dsb), santri bisa berakhir tanpa
+     * asrama aktif sama sekali (baris lama sudah ditutup, baris baru belum sempat
+     * dibuat). Dengan transaction, kalau salah satu gagal, keduanya di-rollback
+     * bersama sehingga data tidak pernah berada di kondisi setengah jalan.
      */
     public static function pindahkan(Santri $santri, Asrama $asramaBaru, ?string $tanggal = null, ?string $keterangan = null): self
     {
         $tanggal ??= now()->toDateString();
 
-        static::where('santri_id', $santri->id)
-            ->whereNull('tanggal_keluar')
-            ->update(['tanggal_keluar' => $tanggal]);
+        return DB::transaction(function () use ($santri, $asramaBaru, $tanggal, $keterangan) {
+            static::where('santri_id', $santri->id)
+                ->whereNull('tanggal_keluar')
+                ->update(['tanggal_keluar' => $tanggal]);
 
-        return static::create([
-            'santri_id' => $santri->id,
-            'asrama_id' => $asramaBaru->id,
-            'tanggal_masuk' => $tanggal,
-            'keterangan' => $keterangan,
-        ]);
+            return static::create([
+                'santri_id' => $santri->id,
+                'asrama_id' => $asramaBaru->id,
+                'tanggal_masuk' => $tanggal,
+                'keterangan' => $keterangan,
+            ]);
+        });
     }
 }
