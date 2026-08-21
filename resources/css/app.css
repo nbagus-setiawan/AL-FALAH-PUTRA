@@ -6,4 +6,38 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Token tipografi khusus admin panel (dashboard Sekretaris/Ketua Umum/Bendahara).
+       Sengaja dipisah dari --font-sans di atas supaya halaman welcome.blade.php
+       (yang memakai font default Laravel) tidak ikut berubah. */
+    --font-display: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Hijau tua — warna utama: sidebar & aksen brand. */
+    --color-forest-50: #eaf3ee;
+    --color-forest-100: #cfe4d8;
+    --color-forest-200: #a9cdb9;
+    --color-forest-300: #7fb69b;
+    --color-forest-400: #57a17f;
+    --color-forest-500: #3b8967;
+    --color-forest-600: #2d6a4f;
+    --color-forest-700: #235241;
+    --color-forest-800: #1b4332;
+    --color-forest-900: #143326;
+    --color-forest-950: #0e241a;
+
+    /* Emas — aksen untuk status aktif / penting, dipakai tipis dan hemat. */
+    --color-gold-100: #f3e6bb;
+    --color-gold-300: #e4c766;
+    --color-gold-400: #d9bb4a;
+    --color-gold-500: #c9a227;
+    --color-gold-600: #a9821f;
+
+    /* Krem — latar konten (bukan putih polos, memberi kehangatan). */
+    --color-cream-50: #fbf8f2;
+    --color-cream-100: #f2ecdd;
+
+    /* Tinta — teks utama & sekunder di atas latar terang. */
+    --color-ink-900: #1c2420;
+    --color-ink-700: #3a443e;
 }
